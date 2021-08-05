@@ -105,7 +105,7 @@ for k = loop_k
     end
 end
 bgp_fr = 0;
-bgi_fr = 800;
+bgi_fr = 900;
 GenerateSpikes(bgp_fr, t, num_cor*2, num_trials, G_AMPA_ext(1), G_NMDA(1));
 GenerateSpikes(bgi_fr, t, num_inter, num_trials, G_AMPA_ext(2), G_NMDA(2));
 
