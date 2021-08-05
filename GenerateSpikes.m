@@ -13,17 +13,12 @@ function GenerateSpikes(fr, t, num_neurons, trials, G_AMPA, G_NMDA)
         g_AMPA = exp(-t/tau_AMPA);
         g_NMDA = tau_NMDA_2/(tau_NMDA_2-tau_NMDA_1) ...
         *(exp(-t/tau_NMDA_2)-exp(-t/tau_NMDA_1));
-        g__AMPA = zeros(num_neurons, length(t));
-        g__NMDA = zeros(num_neurons, length(t));
-        for j = 1:num_neurons
-            temp_ampa = conv(g_AMPA, spikes(j, :));
-            temp_nmda = conv(g_NMDA, spikes(j, :));
-            g__AMPA(j, :) = temp_ampa(1:length(t));
-            g__NMDA(j, :) = temp_nmda(1:length(t));
-        end
-        g_AMPA = g__AMPA*G_AMPA;
-        g_NMDA = g__NMDA*G_NMDA;
+        temp_ampa = cnv(g_AMPA', spikes');
+        temp_nmda = cnv(g_NMDA', spikes');
+        g_AMPA = temp_ampa(1:length(t), :)*G_AMPA;
+        g_NMDA = temp_nmda(1:length(t), :)*G_NMDA;
         mkdir(sprintf("spikes/trial%0.0f", trial))
         save(sprintf("spikes/trial%0.0f/%0.0fHz_N=%0.0f", [trial, fr, num_neurons]), "spikes", "g_AMPA", "g_NMDA")
+        disp("Ran Generate Spikes")
     end
 end

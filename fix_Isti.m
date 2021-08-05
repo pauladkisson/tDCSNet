@@ -24,3 +24,9 @@ plot(t, Vm(:, end)*1000)
 xlabel("Time (s)")
 ylabel("Membrane Potential (mV)")
 title("Inhibitory Neuron")
+
+figure;
+plot(t, Vm(:, end-1)*1000)
+xlabel("Time (s)")
+ylabel("Membrane Potential (mV)")
+title("Inhibitory Neuron")

@@ -4,22 +4,23 @@
 clear;
 tic;
 %% functions that only need to be run once
-size_reduction_factor = 1;
+size_reduction_factor = 200;
 num_cor = floor(400 / size_reduction_factor);
 num_inter = floor(200 / size_reduction_factor);
 num = 2*num_cor+num_inter;
 num_sub = 12;
 % the connectivity rates:
-% [within cortical 1, within cortical 2, cortical to interneuron, interneuron to cortical, within interneuron]
+% [within cortical 1, within cortical 2, within interneuron, cortical to interneuron, interneuron to cortical]
 srf = size_reduction_factor;
-srf_connectivity_corrections = [sqrt(srf), sqrt(srf), srf, srf, sqrt(srf)];
-connectivity = [0.08, 0.08, 0.1, 0.2, 0.1];%.*srf_connectivity_corrections;
+srf_connectivity_corrections = [sqrt(srf), sqrt(srf), sqrt(srf), srf, srf];
+%srf_connectivity_corrections = srf;
+connectivity = [0.08, 0.08, 0.2, 0.1, 0.1].*srf_connectivity_corrections;
 GenerateBrains(num_cor, num_inter, num_sub, connectivity);
 %% basic parameters that may change across experiments
 % parameters about the simulation time
 dt = 1e-5;
 tspan = 1; % the whole timespan
-t_task = 0; % the time when task-related input comes in, also note that 
+t_task = 1; % the time when task-related input comes in, also note that 
             % background input and DC input is present all the time
 %number of trials 
 num_trials = 1;
@@ -40,19 +41,71 @@ G_NMDA = [0.165, 0.13]*1e-9;
 G_GABA = [1.3, 1.0]*1e-9;
 GenerateConductanceMaps(num_cor, num_inter, ei_balance);
 
+%% setups for different experiment
+% fixed k
+fixed_k = 0;
+if ismember(fixed_k, 0:4)
+    loop_k = fixed_k;
+else
+    loop_k = 0:4;
+end
+
+% fixed E/I balance
+% index of the E/I balance wanted in the list above
+% anything else put the E/I balance loop through the list
+fixed_ei = 1; 
+if ismember(fixed_ei, 1:length(ei_balance))
+    loop_ei = fixed_ei;
+else
+    loop_ei = 1 : length(ei_balance);
+end
+
+% this part determines whether or not there is DC in the experiment, and
+% to which part DC is applied, options are +/-1) whole cortical population; 
+% +/-2) excitatory neurons in cortical population; +/-3) inhibitory neurons in 
+% cortical population; 4) no DC
+dc_type = 4;
+dc_amp = 2e-12;
+% marker of the populations
+population_type = [ones(1, num_cor), 2*ones(1, num_cor), 3*ones(1, num_inter)];
+switch dc_type
+    case 1
+        dc = dc_amp*repmat((population_type==1), length(loop_ei), 1);
+    case -1
+        dc = -dc_amp*repmat((population_type==1), length(loop_ei), 1);
+    case 2
+        dc = dc_amp*repmat((population_type==1), length(loop_ei), 1).*(neuron_type)';
+    case -2
+        dc = -dc_amp*repmat((population_type==1), length(loop_ei), 1).*(neuron_type)';
+    case 3
+        dc = dc_amp*repmat((population_type==1), length(loop_ei), 1).*(~neuron_type)';
+    case -3
+        dc = -dc_amp*repmat((population_type==1), length(loop_ei), 1).*(~neuron_type)';
+    case 4
+        dc = zeros(length(loop_ei), num);
+end
+
+% the subjects
+% you can choose a certain subject, or the code will loop through all of
+% them
+fixed_brains = 1; 
+if ismember(fixed_brains, 1:num_sub)
+    loop_brains = fixed_brains;
+else
+    loop_brains = 1 : num_sub;
+end
 %% parameters that should not need change
 % timespan
 t = 0 : dt : tspan;
 % Generate Poisson Spikes
-ks = 0:4;
-for k = ks
+for k = loop_k
     frs = mapping(step_freq, std_freq, k, rand_on);
     for fr = frs
         GenerateSpikes(fr, t, num_cor, num_trials, G_AMPA_ext(1), G_NMDA(1));
     end
 end
-bgp_fr = 900;
-bgi_fr = 700;
+bgp_fr = 0;
+bgi_fr = 800;
 GenerateSpikes(bgp_fr, t, num_cor*2, num_trials, G_AMPA_ext(1), G_NMDA(1));
 GenerateSpikes(bgi_fr, t, num_inter, num_trials, G_AMPA_ext(2), G_NMDA(2));
 
@@ -69,8 +122,6 @@ delay = 0.5e-3; % synapse delay
 % count of refractory period and delay
 RP = fix(tau_r/dt);
 delay_ind = fix(delay/dt);
-% marker of the populations
-population_type = [ones(1, num_cor), 2*ones(1, num_cor), 3*ones(1, num_inter)];
 
 save("tdcs_constants.mat")
 toc
