@@ -42,7 +42,6 @@ for brain = loop_brains
                 RP_ind = zeros(1, num);
                 Vm = -70*ones(length(t), num)*1e-3;
                 t_channel = inf*ones(length(t), num); % time after the last spike
-                synapse_currents = zeros(length(t), num, 3);
                 for i = 1 : length(t)-1
                     if i <= delay_ind
                         % the following three are variables considering the
@@ -51,16 +50,15 @@ for brain = loop_brains
                         V_ch = zeros(1, num);
                         I_ch = zeros(1, num);
                     else
-                        t_ch = t_channel(i-delay_ind, :)';
+                        t_ch = t_channel(i-delay_ind, :);
                         V_ch = Vm(i-delay_ind, :);
-                        I_temp = synapse_current(V_ch, t_ch, adja, AMPA, NMDA, GABA);
-                        synapse_currents(i, :, :) = I_temp';
+                        I_temp = fast_synapse_current(V_ch, t_ch, adja, AMPA, NMDA, GABA);
                         I_ch = sum(I_temp, 1);
                     end
                     % calculate external input
-                    I_temp  = conductance2current(Vm(i, :), g_AMPA_bg(:, i)', g_NMDA_bg(:, i)');
+                    I_temp = conductance2current(Vm(i, :), g_AMPA_bg(:, i)', g_NMDA_bg(:, i)');
                     I_bg = I_temp(1, :) + I_temp(2, :);
-                    if (t(i)>t_task)
+                    if (t(i)>t_task && t(i)<t_taskoff)
                         I_temp = conductance2current(Vm(i, :), g_AMPA_task(:, i)', g_NMDA_task(:, i)');
                         I_task = I_temp(1, :) + I_temp(2, :);
                         I_ext = I_bg+I_task+dc(ei, :);
@@ -94,15 +92,10 @@ for brain = loop_brains
     end
 end
 toc
-for syn_type = 1:3
-    figure;
-    plot(t, synapse_currents(:, 1:5, syn_type))
-    title(sprintf("syntype: %0.0f", syn_type))
-    legend(compose("neuron %0.0f", 1:5))
-end
 %% 
 % Corrected Version
 function I = synapse_current(V, t, adja, AMPA, NMDA, GABA)
+    t = t';
     tau_AMPA = 2e-3;
     tau_NMDA_1 = 2e-3;
     tau_NMDA_2 = 100e-3;
@@ -121,6 +114,31 @@ function I = synapse_current(V, t, adja, AMPA, NMDA, GABA)
     I_NMDA = sum(I_syn(:, :, 2).*NMDA.*adja, 1);
     I_GABA = sum(I_syn(:, :, 3).*GABA.*adja, 1);
     I = [I_AMPA; I_NMDA; I_GABA];
+end
+
+function I = fast_synapse_current(V, t, adja, AMPA, NMDA, GABA)
+    tau_AMPA = 2e-3;
+    tau_NMDA_1 = 2e-3;
+    tau_NMDA_2 = 100e-3;
+    tau_GABA = 5e-3;
+    Mg = 1;
+    E_AMPA = 0;
+    E_NMDA = 0;
+    E_GABA = -70e-3;
+    
+    %First, find the total synaptic conductance (summed over all synapses)
+    %for each neuron (for AMPA, NMDA, and GABA)
+    g_AMPA = exp(-t/tau_AMPA)*(adja.*AMPA);
+    g_NMDA = (tau_NMDA_2/(tau_NMDA_2-tau_NMDA_1)*(exp(-t/tau_NMDA_2)-exp(-t/tau_NMDA_1)))...
+        *(adja.*NMDA);
+    g_GABA = exp(-t/tau_GABA)*(adja.*GABA);
+    
+    %Then, use post-synaptic membrane potential to calculate total current
+    I = zeros(length(V), 3);
+    I(:, 1) = g_AMPA.*(E_AMPA-V);
+    I(:, 2) = g_NMDA.*((E_NMDA-V)./(1+Mg*exp(-0.062*V*1000)/3.57));
+    I(:, 3) = g_GABA.*(E_GABA-V);
+    I = I';
 end
 %}
 %{
@@ -163,5 +181,5 @@ function [freq] = mapping(step, std, k, rand_on)
 end
 %%
 function [] = parsave(dir, Vm)
-    save(dir, 'Vm');
+    save(dir, 'Vm', "-v7.3");
 end

@@ -4,7 +4,7 @@
 clear;
 tic;
 %% functions that only need to be run once
-size_reduction_factor = 200;
+size_reduction_factor = 1;
 num_cor = floor(400 / size_reduction_factor);
 num_inter = floor(200 / size_reduction_factor);
 num = 2*num_cor+num_inter;
@@ -22,12 +22,13 @@ dt = 1e-5;
 tspan = 1; % the whole timespan
 t_task = 1; % the time when task-related input comes in, also note that 
             % background input and DC input is present all the time
-%number of trials 
+t_taskoff = 3;
+%number of trials
 num_trials = 1;
 % parameters about the task-related input
 rand_on = 0; % if random factor is turned on in the frequency of 
              % task-related input
-step_freq = 0; % the difference of two task-related inputs will be 
+step_freq = 10; % the difference of two task-related inputs will be 
                 % 2*k*step_freq
                 
 std_freq = 10; % only effective when the rand option is tured on
@@ -43,7 +44,7 @@ GenerateConductanceMaps(num_cor, num_inter, ei_balance);
 
 %% setups for different experiment
 % fixed k
-fixed_k = 0;
+fixed_k = 4;
 if ismember(fixed_k, 0:4)
     loop_k = fixed_k;
 else
@@ -53,7 +54,7 @@ end
 % fixed E/I balance
 % index of the E/I balance wanted in the list above
 % anything else put the E/I balance loop through the list
-fixed_ei = 1; 
+fixed_ei = 1;
 if ismember(fixed_ei, 1:length(ei_balance))
     loop_ei = fixed_ei;
 else
@@ -104,14 +105,14 @@ for k = loop_k
         GenerateSpikes(fr, t, num_cor, num_trials, G_AMPA_ext(1), G_NMDA(1));
     end
 end
-bgp_fr = 0;
-bgi_fr = 900;
+bgp_fr = 875;
+bgi_fr = 875;
 GenerateSpikes(bgp_fr, t, num_cor*2, num_trials, G_AMPA_ext(1), G_NMDA(1));
 GenerateSpikes(bgi_fr, t, num_inter, num_trials, G_AMPA_ext(2), G_NMDA(2));
 
 % parameters of the neuron model
 C = [0.5, 0.2]*1e-9; % the structure is [pyramidal neurons, interneurons]
-gL = [25, 20]*1e-9; 
+gL = [25, 20]*1e-9;
 EL = -70e-3;
 dT = 3e-3;
 VT = -55e-3;

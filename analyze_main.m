@@ -23,9 +23,9 @@ for i = 1:length(dc_types)
         for trial = 1:num_trials
             wait = waitbar(trial/num_trials, wait, compose("trial %0.0f / %0.0f", [trial, num_trials]));
             if ei==0
-                trialname = sprintf("data/brain=1 ei=%0.0f k=0 dc_type=%0.0f/trial%0.0f.mat", [ei, dc_type, trial]);
+                trialname = sprintf("data/brain=1 ei=%0.0f k=4 dc_type=%0.0f/trial%0.0f.mat", [ei, dc_type, trial]);
             else
-                trialname = sprintf("data/brain=1 ei=%0.1f k=0 dc_type=%0.0f/trial%0.0f.mat", [ei, dc_type, trial]);
+                trialname = sprintf("data/brain=1 ei=%0.1f k=4 dc_type=%0.0f/trial%0.0f.mat", [ei, dc_type, trial]);
             end
             if do_load
                 frname = split(trialname, ".mat");
