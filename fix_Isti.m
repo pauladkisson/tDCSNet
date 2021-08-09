@@ -8,7 +8,7 @@ for i = 1:num_trials
     plot(t, fr3_avg)
     hold off
     legend(["C1", "C2", "Int"])
-    title("875Hz bgp, 875Hz bgi, k=4")
+    title("900Hz bgp, 700Hz bgi, k=4")
 end
 
 load("data/brain=1 ei=0 k=4 dc_type=4/trial1.mat")
