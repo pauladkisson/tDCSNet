@@ -5,8 +5,8 @@ clear;
 tic;
 %% functions that only need to be run once
 size_reduction_factor = 1;
-num_cor = floor(400 / size_reduction_factor);
-num_inter = floor(200 / size_reduction_factor);
+num_cor = floor(800 / size_reduction_factor);
+num_inter = floor(400 / size_reduction_factor);
 num = 2*num_cor+num_inter;
 num_sub = 12;
 % the connectivity rates:
@@ -14,12 +14,13 @@ num_sub = 12;
 srf = size_reduction_factor;
 srf_connectivity_corrections = [sqrt(srf), sqrt(srf), sqrt(srf), srf, srf];
 %srf_connectivity_corrections = srf;
-connectivity = [0.08, 0.08, 0.2, 0.1, 0.1].*srf_connectivity_corrections;
+%connectivity = [0.08, 0.08, 0.1, 0.1, 0.2].*srf_connectivity_corrections;
+connectivity = [0.08, 0.08, 0.1, 0.1, 0.2].*srf_connectivity_corrections;
 GenerateBrains(num_cor, num_inter, num_sub, connectivity);
 %% basic parameters that may change across experiments
 % parameters about the simulation time
 dt = 1e-5;
-tspan = 1; % the whole timespan
+tspan = 4; % the whole timespan
 t_task = 1; % the time when task-related input comes in, also note that 
             % background input and DC input is present all the time
 t_taskoff = 3;
@@ -105,8 +106,8 @@ for k = loop_k
         GenerateSpikes(fr, t, num_cor, num_trials, G_AMPA_ext(1), G_NMDA(1));
     end
 end
-bgp_fr = 900;
-bgi_fr = 700;
+bgp_fr = 800;
+bgi_fr = 600;
 GenerateSpikes(bgp_fr, t, num_cor*2, num_trials, G_AMPA_ext(1), G_NMDA(1));
 GenerateSpikes(bgi_fr, t, num_inter, num_trials, G_AMPA_ext(2), G_NMDA(2));
 
@@ -119,6 +120,10 @@ VT = -55e-3;
 VS = -20e-3;
 Vr = -53e-3;
 tau_r = [2, 1]*1e-3; % refractory period
+tau_AMPA = 2e-3;
+tau_NMDA_1 = 2e-3;
+tau_NMDA_2 = 100e-3;
+tau_GABA = 5e-3;
 delay = 0.5e-3; % synapse delay
 % count of refractory period and delay
 RP = fix(tau_r/dt);

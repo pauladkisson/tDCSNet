@@ -8,7 +8,7 @@ for i = 1:num_trials
     plot(t, fr3_avg)
     hold off
     legend(["C1", "C2", "Int"])
-    title("900Hz bgp, 700Hz bgi, k=4")
+    title("800Hz bgp, 600Hz bgi, sumspikes")
 end
 
 load("data/brain=1 ei=0 k=4 dc_type=4/trial1.mat")
@@ -19,14 +19,10 @@ for i = 1:4
     ylabel("Membrane Potential (mV)")
 end
 
-figure;
-plot(t, Vm(:, end)*1000)
-xlabel("Time (s)")
-ylabel("Membrane Potential (mV)")
-title("Inhibitory Neuron")
-
-figure;
-plot(t, Vm(:, end-1)*1000)
-xlabel("Time (s)")
-ylabel("Membrane Potential (mV)")
-title("Inhibitory Neuron")
+for i = 0:10
+    figure;
+    plot(t, Vm(:, end-i)*1000)
+    xlabel("Time (s)")
+    ylabel("Membrane Potential (mV)")
+    title("Inhibitory Neuron")
+end

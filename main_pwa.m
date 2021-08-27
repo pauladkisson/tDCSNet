@@ -51,7 +51,8 @@ for brain = loop_brains
                         I_ch = zeros(1, num);
                     else
                         t_ch = t_channel(i-delay_ind, :);
-                        V_ch = Vm(i-delay_ind, :);
+                        %V_ch = Vm(i-delay_ind, :);
+                        V_ch = Vm(i, :);
                         I_temp = fast_synapse_current(V_ch, t_ch, adja, AMPA, NMDA, GABA);
                         I_ch = sum(I_temp, 1);
                     end
@@ -81,6 +82,7 @@ for brain = loop_brains
                                 gL(sign(population_type-3)+2)*dT.*exp((Vm(i, :)-VT)/dT) ...
                                 +I_ch+I_ext)./C(sign(population_type-3)+2);
                     Vm(i+1, non_rp) = Vm(i, non_rp)+dvdt(non_rp)*dt;
+                    Vm(i+1, in_rp) = Vr; % Hold refractory neurons at Vr
                     % for those in refractory period, reduce the time they
                     % will still be in it
                     RP_ind(in_rp) = RP_ind(in_rp)-1;

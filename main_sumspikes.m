@@ -1,71 +1,6 @@
 clear;
 tic
 load("tdcs_constants.mat")
-
-%% Generate Single spike train for all background inputs
-seed = randi(1000);
-rng(seed);
-GenerateSpikes(bgp_fr, t, 1, num_trials, G_AMPA_ext(1), G_NMDA(1))
-rng(seed);
-GenerateSpikes(bgi_fr, t, 1, num_trials, G_AMPA_ext(2), G_NMDA(2))
-
-%% setups for different experiment
-% fixed k
-fixed_k = 0;
-if ismember(fixed_k, 0:4)
-    loop_k = fixed_k;
-else
-    loop_k = 0:4;
-end
-
-% fixed E/I balance
-% index of the E/I balance wanted in the list above
-% anything else put the E/I balance loop through the list
-fixed_ei = 1; 
-if ismember(fixed_ei, 1:length(ei_balance))
-    loop_ei = fixed_ei;
-else
-    loop_ei = 1 : length(ei_balance);
-end
-
-% this part determines whether or not there is DC in the experiment, and
-% to which part DC is applied, options are +/-1) whole cortical population; 
-% +/-2) excitatory neurons in cortical population; +/-3) inhibitory neurons in 
-% cortical population; 4) no DC
-dc_type = 4;
-dc_amp = 2e-12;
-switch dc_type
-    case 1
-        dc = dc_amp*repmat((population_type==1), length(ei_balance), 1);
-    case -1
-        dc = -dc_amp*repmat((population_type==1), length(ei_balance), 1);
-    case 2
-        dc = dc_amp*repmat((population_type==1), length(ei_balance), 1).*(neuron_type)';
-    case -2
-        dc = -dc_amp*repmat((population_type==1), length(ei_balance), 1).*(neuron_type)';
-    case 3
-        dc = dc_amp*repmat((population_type==1), length(ei_balance), 1).*(~neuron_type)';
-    case -3
-        dc = -dc_amp*repmat((population_type==1), length(ei_balance), 1).*(~neuron_type)';
-    case 4
-        dc = zeros(length(ei_balance), num);
-end
-
-% the subjects
-% you can choose a certain subject, or the code will loop through all of
-% them
-fixed_brains = 1; 
-if ismember(fixed_brains, 1:num_sub)
-    loop_brains = fixed_brains;
-    % Clear brains you don't need
-    for i = 1:num_sub
-        if i ~= fixed_brains
-            clear(sprintf("brain%0.0f", i))
-        end
-    end
-else
-    loop_brains = 1 : num_sub;
-end
 %% main body
 for brain = loop_brains
     fprintf("brain: %0.0f \n", brain)
@@ -84,22 +19,22 @@ for brain = loop_brains
                 fprintf("trial: %0.0f \n", trial)
                 basepath = sprintf("spikes/trial%0.0f", trial);
                 % background input
-                load(strcat(basepath, sprintf("/%0.0fHz_N=%0.0f", [bgp_fr, 1])));
-                g_AMPA_cor = repmat(g_AMPA, num_cor*2, 1);
-                g_NMDA_cor = repmat(g_NMDA, num_cor*2, 1);
-                load(strcat(basepath, sprintf("/%0.0fHz_N=%0.0f", [bgi_fr, 1])));
-                g_AMPA_int = repmat(g_AMPA, num_inter,  1);
-                g_NMDA_int = repmat(g_NMDA, num_inter, 1);
+                load(strcat(basepath, sprintf("/%0.0fHz_N=%0.0f", [bgp_fr, num_cor*2])));
+                g_AMPA_cor = g_AMPA';
+                g_NMDA_cor = g_NMDA';
+                load(strcat(basepath, sprintf("/%0.0fHz_N=%0.0f", [bgi_fr, num_inter])));
+                g_AMPA_int = g_AMPA';
+                g_NMDA_int = g_NMDA';
                 g_AMPA_bg = [g_AMPA_cor; g_AMPA_int];
-                g_NMDA_bg = [g_NMDA_cor; g_NMDA_int]; 
+                g_NMDA_bg = [g_NMDA_cor; g_NMDA_int];
                 % task-related input
                 task_freq = mapping(step_freq, std_freq, k, rand_on);
                 load(strcat(basepath, sprintf("/%0.0fHz_N=%0.0f", [task_freq(1), num_cor])));
-                g_AMPA_c1 = g_AMPA;
-                g_NMDA_c1 = g_NMDA;
+                g_AMPA_c1 = g_AMPA';
+                g_NMDA_c1 = g_NMDA';
                 load(strcat(basepath, sprintf("/%0.0fHz_N=%0.0f", [task_freq(2), num_cor])));
-                g_AMPA_c2 = g_AMPA;
-                g_NMDA_c2 = g_NMDA;
+                g_AMPA_c2 = g_AMPA';
+                g_NMDA_c2 = g_NMDA';
                 p2Spike = zeros(num_cor, length(t)); 
                 g_AMPA_task = [g_AMPA_c1; g_AMPA_c2; zeros(num_inter, length(t))];
                 g_NMDA_task = [g_NMDA_c1; g_NMDA_c2; zeros(num_inter, length(t))];
@@ -107,6 +42,10 @@ for brain = loop_brains
                 RP_ind = zeros(1, num);
                 Vm = -70*ones(length(t), num)*1e-3;
                 t_channel = inf*ones(length(t), num); % time after the last spike
+                x_ampa = zeros(length(t), num); %x_syn is the decaying exponential term for that synapse
+                x_nmda1 = zeros(length(t), num);
+                x_nmda2 = zeros(length(t), num);
+                x_gaba = zeros(length(t), num);
                 for i = 1 : length(t)-1
                     if i <= delay_ind
                         % the following three are variables considering the
@@ -116,16 +55,19 @@ for brain = loop_brains
                         I_ch = zeros(1, num);
                     else
                         t_ch = t_channel(i-delay_ind, :);
+                        %V_ch = Vm(i-delay_ind, :);
                         V_ch = Vm(i, :);
-                        I_temp = synapse_current(V_ch, t_ch);
-                        I_ch = I_temp(1, :)*(adja.*AMPA)+ ...
-                            I_temp(2, :)*(adja.*NMDA)+ ...
-                            I_temp(3, :)*(adja.*GABA);
+                        x_ampa_ch = x_ampa(i-delay_ind, :);
+                        x_nmda1_ch = x_nmda1(i-delay_ind, :);
+                        x_nmda2_ch = x_nmda2(i-delay_ind, :);
+                        x_gaba_ch = x_gaba(i-delay_ind, :);
+                        I_temp = fast_synapse_current(V_ch, x_ampa_ch, x_nmda1_ch, x_nmda2_ch, x_gaba_ch, adja, AMPA, NMDA, GABA);
+                        I_ch = sum(I_temp, 1);
                     end
                     % calculate external input
-                    I_temp  = conductance2current(Vm(i, :), g_AMPA_bg(:, i)', g_NMDA_bg(:, i)');
+                    I_temp = conductance2current(Vm(i, :), g_AMPA_bg(:, i)', g_NMDA_bg(:, i)');
                     I_bg = I_temp(1, :) + I_temp(2, :);
-                    if (t(i)>t_task)
+                    if (t(i)>t_task && t(i)<t_taskoff)
                         I_temp = conductance2current(Vm(i, :), g_AMPA_task(:, i)', g_NMDA_task(:, i)');
                         I_task = I_temp(1, :) + I_temp(2, :);
                         I_ext = I_bg+I_task+dc(ei, :);
@@ -140,6 +82,14 @@ for brain = loop_brains
                     RP_ind(is_spike) = RP(sign(population_type(is_spike)-3)+2);
                     t_channel(i, is_spike) = 0;
                     t_channel(i+1, :) = t_channel(i, :)+dt;
+                    x_ampa(i, is_spike) = x_ampa(i, is_spike) + 1;
+                    x_ampa(i+1, :) = x_ampa(i, :) - dt*x_ampa(i, :) / tau_AMPA;
+                    x_nmda1(i, is_spike) = x_nmda1(i, is_spike) + 1;
+                    x_nmda1(i+1, :) = x_nmda1(i, :) - dt*x_nmda1(i, :) / tau_NMDA_1;
+                    x_nmda2(i, is_spike) = x_nmda2(i, is_spike) + 1;
+                    x_nmda2(i+1, :) = x_nmda2(i, :) - dt*x_nmda2(i, :) / tau_NMDA_2;
+                    x_gaba(i, is_spike) = x_gaba(i, is_spike) + 1;
+                    x_gaba(i+1, :) = x_gaba(i,:) - dt*x_gaba(i, :) / tau_GABA;
                     % choose the neurons that are not in refractory period,
                     % calculate dvdt and update membrane potential
                     non_rp = (RP_ind==0);
@@ -162,7 +112,8 @@ end
 toc
 %% 
 % Corrected Version
-function I = synapse_current(V, t)
+function I = synapse_current(V, t, adja, AMPA, NMDA, GABA)
+    t = t';
     tau_AMPA = 2e-3;
     tau_NMDA_1 = 2e-3;
     tau_NMDA_2 = 100e-3;
@@ -171,13 +122,38 @@ function I = synapse_current(V, t)
     E_AMPA = 0;
     E_NMDA = 0;
     E_GABA = -70e-3;
-    I = zeros(length(V), 3);
-    I(:, 1) = exp(-t/tau_AMPA).*(E_AMPA-V);
+    I_syn = zeros(length(t), length(V), 3);
+    I_syn(:, :, 1) = exp(-t/tau_AMPA)*(E_AMPA-V);
     g_NMDA = tau_NMDA_2/(tau_NMDA_2-tau_NMDA_1) ...
         *(exp(-t/tau_NMDA_2)-exp(-t/tau_NMDA_1));
-    NMDA = g_NMDA.*(E_NMDA-V)./(1+Mg*exp(-0.062*V*1000)/3.57);
-    I(:, 2) = NMDA;
-    I(:, 3) = exp(-t/tau_GABA).*(E_GABA-V);
+    I_syn(:, :, 2) = g_NMDA*((E_NMDA-V)./(1+Mg*exp(-0.062*V*1000)/3.57));
+    I_syn(:, :, 3) = exp(-t/tau_GABA)*(E_GABA-V);
+    I_AMPA = sum(I_syn(:, :, 1).*AMPA.*adja, 1);
+    I_NMDA = sum(I_syn(:, :, 2).*NMDA.*adja, 1);
+    I_GABA = sum(I_syn(:, :, 3).*GABA.*adja, 1);
+    I = [I_AMPA; I_NMDA; I_GABA];
+end
+
+function I = fast_synapse_current(V, x_ampa, x_nmda1, x_nmda2, x_gaba, adja, AMPA, NMDA, GABA);
+    Mg = 1;
+    E_AMPA = 0;
+    E_NMDA = 0;
+    E_GABA = -70e-3;
+    tau_NMDA_1 = 2e-3;
+    tau_NMDA_2 = 100e-3;
+    
+    %First, find the total synaptic conductance (summed over all synapses)
+    %for each neuron (for AMPA, NMDA, and GABA)
+    g_AMPA = x_ampa*(adja.*AMPA);
+    g_NMDA = (tau_NMDA_2/(tau_NMDA_2-tau_NMDA_1))*(x_nmda2 - x_nmda1)...
+        *(adja.*NMDA);
+    g_GABA = x_gaba*(adja.*GABA);
+    
+    %Then, use post-synaptic membrane potential to calculate total current
+    I = zeros(length(V), 3);
+    I(:, 1) = g_AMPA.*(E_AMPA-V);
+    I(:, 2) = g_NMDA.*((E_NMDA-V)./(1+Mg*exp(-0.062*V*1000)/3.57));
+    I(:, 3) = g_GABA.*(E_GABA-V);
     I = I';
 end
 %}
@@ -221,5 +197,5 @@ function [freq] = mapping(step, std, k, rand_on)
 end
 %%
 function [] = parsave(dir, Vm)
-    save(dir, 'Vm');
+    save(dir, 'Vm', "-v7.3");
 end
