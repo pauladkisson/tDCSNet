@@ -17,12 +17,10 @@ for i = 1:4
     plot(t, Vm(:, i)*1000)
     xlabel("Time (s)")
     ylabel("Membrane Potential (mV)")
+    title("Cortical Neuron")
 end
-
-for i = 0:10
-    figure;
-    plot(t, Vm(:, end-i)*1000)
-    xlabel("Time (s)")
-    ylabel("Membrane Potential (mV)")
-    title("Inhibitory Neuron")
-end
+figure;
+plot(t, Vm(:, end)*1000)
+xlabel("Time (s)")
+ylabel("Membrane Potential (mV)")
+title("Inhibitory Neuron")

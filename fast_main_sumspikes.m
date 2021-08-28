@@ -42,6 +42,10 @@ for brain = loop_brains
                 RP_ind = zeros(1, num);
                 Vm = -70*ones(length(t), num)*1e-3;
                 t_channel = inf*ones(length(t), num); % time after the last spike
+                x_ampa = ones(length(t), num); %x_syn is the decaying exponential term for that synapse
+                x_nmda1 = ones(length(t), num);
+                x_nmda2 = ones(length(t), num);
+                x_gaba = ones(length(t), num);
                 for i = 1 : length(t)-1
                     if i <= delay_ind
                         % the following three are variables considering the
@@ -51,9 +55,12 @@ for brain = loop_brains
                         I_ch = zeros(1, num);
                     else
                         t_ch = t_channel(i-delay_ind, :);
-                        %V_ch = Vm(i-delay_ind, :);
                         V_ch = Vm(i, :);
-                        I_temp = fast_synapse_current(V_ch, t_ch, adja, AMPA, NMDA, GABA);
+                        x_ampa_ch = x_ampa(i-delay_ind, :);
+                        x_nmda1_ch = x_nmda1(i-delay_ind, :);
+                        x_nmda2_ch = x_nmda2(i-delay_ind, :);
+                        x_gaba_ch = x_gaba(i-delay_ind, :);
+                        I_temp = synapse_current(V_ch, t_ch, x_ampa_ch, x_nmda1_ch, x_nmda2_ch, x_gaba_ch, adja, AMPA, NMDA, GABA);
                         I_ch = sum(I_temp, 1);
                     end
                     % calculate external input
@@ -73,6 +80,10 @@ for brain = loop_brains
                     if any(is_spike)
                         Vm(i+1, is_spike) = Vr;
                         RP_ind(is_spike) = RP(sign(population_type(is_spike)-3)+2);
+                        x_ampa(i+1:end, is_spike) = x_ampa(i, is_spike) + exp(-t_channel(i, is_spike)/tau_AMPA);
+                        x_nmda1(i+1:end, is_spike) = x_nmda1(i, is_spike) + exp(-t_channel(i, is_spike)/tau_NMDA_1);
+                        x_nmda2(i+1:end, is_spike) = x_nmda2(i, is_spike) + exp(-t_channel(i, is_spike)/tau_NMDA_2);
+                        x_gaba(i+1:end, is_spike) = x_gaba(i, is_spike) + exp(-t_channel(i, is_spike)/tau_GABA);
                         t_channel(i, is_spike) = 0;
                     end
                     t_channel(i+1, :) = t_channel(i, :)+dt;
@@ -97,30 +108,7 @@ for brain = loop_brains
 end
 toc
 %% 
-% Corrected Version
-function I = synapse_current(V, t, adja, AMPA, NMDA, GABA)
-    t = t';
-    tau_AMPA = 2e-3;
-    tau_NMDA_1 = 2e-3;
-    tau_NMDA_2 = 100e-3;
-    tau_GABA = 5e-3;
-    Mg = 1;
-    E_AMPA = 0;
-    E_NMDA = 0;
-    E_GABA = -70e-3;
-    I_syn = zeros(length(t), length(V), 3);
-    I_syn(:, :, 1) = exp(-t/tau_AMPA)*(E_AMPA-V);
-    g_NMDA = tau_NMDA_2/(tau_NMDA_2-tau_NMDA_1) ...
-        *(exp(-t/tau_NMDA_2)-exp(-t/tau_NMDA_1));
-    I_syn(:, :, 2) = g_NMDA*((E_NMDA-V)./(1+Mg*exp(-0.062*V*1000)/3.57));
-    I_syn(:, :, 3) = exp(-t/tau_GABA)*(E_GABA-V);
-    I_AMPA = sum(I_syn(:, :, 1).*AMPA.*adja, 1);
-    I_NMDA = sum(I_syn(:, :, 2).*NMDA.*adja, 1);
-    I_GABA = sum(I_syn(:, :, 3).*GABA.*adja, 1);
-    I = [I_AMPA; I_NMDA; I_GABA];
-end
-
-function I = fast_synapse_current(V, t, adja, AMPA, NMDA, GABA)
+function I = synapse_current(V, t_ch, x_ampa, x_nmda1, x_nmda2, x_gaba, adja, AMPA, NMDA, GABA)
     tau_AMPA = 2e-3;
     tau_NMDA_1 = 2e-3;
     tau_NMDA_2 = 100e-3;
@@ -132,10 +120,10 @@ function I = fast_synapse_current(V, t, adja, AMPA, NMDA, GABA)
     
     %First, find the total synaptic conductance (summed over all synapses)
     %for each neuron (for AMPA, NMDA, and GABA)
-    g_AMPA = exp(-t/tau_AMPA)*(adja.*AMPA);
-    g_NMDA = (tau_NMDA_2/(tau_NMDA_2-tau_NMDA_1)*(exp(-t/tau_NMDA_2)-exp(-t/tau_NMDA_1)))...
-        *(adja.*NMDA);
-    g_GABA = exp(-t/tau_GABA)*(adja.*GABA);
+    g_AMPA = x_ampa.*exp(-t_ch/tau_AMPA)*(adja.*AMPA);
+    g_NMDA = (tau_NMDA_2/(tau_NMDA_2-tau_NMDA_1))...
+        *(x_nmda2.*exp(-t_ch/tau_NMDA_2) - x_nmda1.*exp(-t_ch/tau_NMDA_1))*(adja.*NMDA);
+    g_GABA = x_gaba.*exp(-t_ch/tau_GABA)*(adja.*GABA);
     
     %Then, use post-synaptic membrane potential to calculate total current
     I = zeros(length(V), 3);
@@ -144,28 +132,6 @@ function I = fast_synapse_current(V, t, adja, AMPA, NMDA, GABA)
     I(:, 3) = g_GABA.*(E_GABA-V);
     I = I';
 end
-%}
-%{
-% Original Version
-function I = synapse_current(V, t)
-    tau_AMPA = 2e-3;
-    tau_NMDA_1 = 2e-3;
-    tau_NMDA_2 = 100e-3;
-    tau_GABA = 5e-3;
-    Mg = 1e-3;
-    E_AMPA = -70e-3;
-    E_NMDA = 0;
-    E_GABA = 0;
-    I = zeros(length(V), 3);
-    I(:, 1) = exp(-t/tau_AMPA).*(V-E_AMPA);
-    g_NMDA = tau_NMDA_2/(tau_NMDA_2-tau_NMDA_1) ...
-        *(exp(-t/tau_NMDA_1)-exp(-t/tau_NMDA_2));
-    NMDA = g_NMDA.*(V-E_NMDA)./(1+Mg*exp(-0.062*V)/3.57);
-    I(:, 2) = NMDA;
-    I(:, 3) = exp(-t/tau_GABA).*(V-E_GABA);
-    I = I';
-end
-%}
 %%
 function I = conductance2current(V, g_AMPA, g_NMDA)
     Mg = 1;

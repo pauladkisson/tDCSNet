@@ -78,18 +78,20 @@ for brain = loop_brains
                     % put the neuron in refractory period, also update
                     % t_channel
                     is_spike = (Vm(i, :)>=VS);
-                    Vm(i+1, is_spike) = Vr;
-                    RP_ind(is_spike) = RP(sign(population_type(is_spike)-3)+2);
-                    t_channel(i, is_spike) = 0;
-                    t_channel(i+1, :) = t_channel(i, :)+dt;
-                    x_ampa(i, is_spike) = x_ampa(i, is_spike) + 1;
+                    if any(is_spike)
+                        Vm(i+1, is_spike) = Vr;
+                        RP_ind(is_spike) = RP(sign(population_type(is_spike)-3)+2);
+                        t_channel(i, is_spike) = 0;
+                        x_ampa(i, is_spike) = x_ampa(i, is_spike) + 1;
+                        x_nmda1(i, is_spike) = x_nmda1(i, is_spike) + 1;
+                        x_nmda2(i, is_spike) = x_nmda2(i, is_spike) + 1;
+                        x_gaba(i, is_spike) = x_gaba(i, is_spike) + 1;
+                    end
                     x_ampa(i+1, :) = x_ampa(i, :) - dt*x_ampa(i, :) / tau_AMPA;
-                    x_nmda1(i, is_spike) = x_nmda1(i, is_spike) + 1;
                     x_nmda1(i+1, :) = x_nmda1(i, :) - dt*x_nmda1(i, :) / tau_NMDA_1;
-                    x_nmda2(i, is_spike) = x_nmda2(i, is_spike) + 1;
                     x_nmda2(i+1, :) = x_nmda2(i, :) - dt*x_nmda2(i, :) / tau_NMDA_2;
-                    x_gaba(i, is_spike) = x_gaba(i, is_spike) + 1;
                     x_gaba(i+1, :) = x_gaba(i,:) - dt*x_gaba(i, :) / tau_GABA;
+                    t_channel(i+1, :) = t_channel(i, :)+dt;
                     % choose the neurons that are not in refractory period,
                     % calculate dvdt and update membrane potential
                     non_rp = (RP_ind==0);

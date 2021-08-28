@@ -4,7 +4,7 @@
 clear;
 tic;
 %% functions that only need to be run once
-size_reduction_factor = 1;
+size_reduction_factor = 400;
 num_cor = floor(800 / size_reduction_factor);
 num_inter = floor(400 / size_reduction_factor);
 num = 2*num_cor+num_inter;
@@ -106,8 +106,8 @@ for k = loop_k
         GenerateSpikes(fr, t, num_cor, num_trials, G_AMPA_ext(1), G_NMDA(1));
     end
 end
-bgp_fr = 800;
-bgi_fr = 600;
+bgp_fr = 725;
+bgi_fr = 0;
 GenerateSpikes(bgp_fr, t, num_cor*2, num_trials, G_AMPA_ext(1), G_NMDA(1));
 GenerateSpikes(bgi_fr, t, num_inter, num_trials, G_AMPA_ext(2), G_NMDA(2));
 
