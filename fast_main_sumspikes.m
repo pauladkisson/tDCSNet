@@ -80,10 +80,10 @@ for brain = loop_brains
                     if any(is_spike)
                         Vm(i+1, is_spike) = Vr;
                         RP_ind(is_spike) = RP(sign(population_type(is_spike)-3)+2);
-                        x_ampa(i+1:end, is_spike) = x_ampa(i, is_spike) + exp(-t_channel(i, is_spike)/tau_AMPA);
-                        x_nmda1(i+1:end, is_spike) = x_nmda1(i, is_spike) + exp(-t_channel(i, is_spike)/tau_NMDA_1);
-                        x_nmda2(i+1:end, is_spike) = x_nmda2(i, is_spike) + exp(-t_channel(i, is_spike)/tau_NMDA_2);
-                        x_gaba(i+1:end, is_spike) = x_gaba(i, is_spike) + exp(-t_channel(i, is_spike)/tau_GABA);
+                        x_ampa(i+1:end, is_spike) = repmat(x_ampa(i, is_spike) + exp(-t_channel(i, is_spike)/tau_AMPA), length(t)-i, 1);
+                        x_nmda1(i+1:end, is_spike) = repmat(x_nmda1(i, is_spike) + exp(-t_channel(i, is_spike)/tau_NMDA_1), length(t)-i, 1);
+                        x_nmda2(i+1:end, is_spike) = repmat(x_nmda2(i, is_spike) + exp(-t_channel(i, is_spike)/tau_NMDA_2), length(t)-i, 1);
+                        x_gaba(i+1:end, is_spike) = repmat(x_gaba(i, is_spike) + exp(-t_channel(i, is_spike)/tau_GABA), length(t)-i, 1);
                         t_channel(i, is_spike) = 0;
                     end
                     t_channel(i+1, :) = t_channel(i, :)+dt;
